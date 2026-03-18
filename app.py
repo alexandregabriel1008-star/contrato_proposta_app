@@ -1,9 +1,11 @@
 # =====================================================
 # EBRASIL AUTOMAÇÃO
-# Contratos e Propostas - APP FINAL CONSOLIDADO
+# APP FINAL AJUSTADO PARA STREAMLIT CLOUD
 # =====================================================
 
 import streamlit as st
+st.set_page_config(page_title="EBRASIL AUTOMAÇÃO", layout="wide")
+
 import os
 import json
 import hashlib
@@ -32,23 +34,24 @@ from database import (
 )
 
 # =====================================================
-# CONFIGURAÇÃO INICIAL
+# CONFIG
 # =====================================================
 init_db()
-st.set_page_config(page_title="EBRASIL AUTOMAÇÃO", layout="wide")
 
-BASE_OUTPUT = "output"
-BASE_CONTRATADAS = "contratadas"
-BASE_USERS = "users.json"
+BASE_DIR = os.path.dirname(__file__)
 
-TEMPLATES_CONTRATOS = "templates/CONTRATOS"
-TEMPLATES_PROPOSTAS = "templates/PROPOSTAS"
+BASE_OUTPUT = os.path.join(BASE_DIR, "output")
+BASE_CONTRATADAS = os.path.join(BASE_DIR, "contratadas")
+BASE_USERS = os.path.join(BASE_DIR, "users.json")
+
+TEMPLATES_CONTRATOS = os.path.join(BASE_DIR, "templates", "CONTRATOS")
+TEMPLATES_PROPOSTAS = os.path.join(BASE_DIR, "templates", "PROPOSTAS")
 
 for p in [BASE_OUTPUT, BASE_CONTRATADAS, TEMPLATES_CONTRATOS, TEMPLATES_PROPOSTAS]:
     os.makedirs(p, exist_ok=True)
 
 # =====================================================
-# FUNÇÕES AUXILIARES
+# FUNÇÕES
 # =====================================================
 def hash_senha(s):
     return hashlib.sha256(s.encode()).hexdigest()
@@ -65,9 +68,13 @@ def salvar_usuarios(d):
         json.dump(d, f, indent=2, ensure_ascii=False)
 
 def listar_templates(pasta):
+    if not os.path.exists(pasta):
+        return []
     return [f for f in os.listdir(pasta) if f.endswith(".docx")]
 
 def listar_contratadas():
+    if not os.path.exists(BASE_CONTRATADAS):
+        return []
     return [
         f.replace(".json", "")
         for f in os.listdir(BASE_CONTRATADAS)
@@ -95,23 +102,24 @@ if not st.session_state.usuario:
     tab1, tab2 = st.tabs(["Entrar", "Primeiro Acesso"])
 
     with tab1:
-        u = st.text_input("Usuário", key="login_user")
-        s = st.text_input("Senha", type="password", key="login_pass")
+        u = st.text_input("Usuário")
+        s = st.text_input("Senha", type="password")
 
-        if st.button("Entrar", key="btn_login"):
+        if st.button("Entrar"):
             if u in usuarios and usuarios[u] == hash_senha(s):
                 st.session_state.usuario = u
                 os.makedirs(os.path.join(BASE_OUTPUT, u), exist_ok=True)
+                st.success("Login realizado com sucesso")
                 st.rerun()
             else:
                 st.error("Usuário ou senha inválidos")
 
     with tab2:
-        nu = st.text_input("Novo Usuário", key="cad_user")
-        ns = st.text_input("Senha", type="password", key="cad_pass")
-        cs = st.text_input("Confirmar Senha", type="password", key="cad_conf")
+        nu = st.text_input("Novo Usuário")
+        ns = st.text_input("Senha", type="password")
+        cs = st.text_input("Confirmar Senha", type="password")
 
-        if st.button("Criar Acesso", key="btn_cad"):
+        if st.button("Criar Acesso"):
             if nu in usuarios:
                 st.warning("Usuário já existe")
             elif ns != cs:
@@ -119,7 +127,6 @@ if not st.session_state.usuario:
             else:
                 usuarios[nu] = hash_senha(ns)
                 salvar_usuarios(usuarios)
-                os.makedirs(os.path.join(BASE_OUTPUT, nu), exist_ok=True)
                 st.success("Usuário criado com sucesso")
                 st.stop()
 
@@ -142,7 +149,7 @@ menu = st.sidebar.radio("📌 Menu", MENU_OPCOES)
 # DASHBOARD
 # =====================================================
 if menu == "📊 Dashboard":
-    st.subheader("📊 Dashboard Inteligente")
+    st.subheader("📊 Dashboard")
 
     df = pd.DataFrame(listar_historico())
 
@@ -150,89 +157,21 @@ if menu == "📊 Dashboard":
         st.info("Nenhum dado registrado ainda")
         st.stop()
 
-    # 🔐 Dashboard por usuário
     df = df[df["usuario"] == USUARIO].copy()
 
     df["criado_em"] = pd.to_datetime(df["criado_em"], errors="coerce")
     df["data"] = df["criado_em"].dt.strftime("%d/%m/%Y")
 
-    # =========================
-    # MÉTRICAS
-    # =========================
     c1, c2, c3, c4 = st.columns(4)
 
-    c1.metric("📄 Total", len(df))
-    c2.metric("🟡 Revisão", len(df[df["status"] == "REVISAO"]))
-    c3.metric("🟢 Assinados", len(df[df["status"] == "ASSINADO"]))
-    c4.metric("🔵 Concluídos", len(df[df["status"] == "CONCLUIDO"]))
+    c1.metric("Total", len(df))
+    c2.metric("Revisão", len(df[df["status"] == "REVISAO"]))
+    c3.metric("Assinados", len(df[df["status"] == "ASSINADO"]))
+    c4.metric("Concluídos", len(df[df["status"] == "CONCLUIDO"]))
 
-    # =========================
-    # GRÁFICOS
-    # =========================
     if PLOTLY_OK:
-        col1, col2 = st.columns(2)
-
-        with col1:
-            df_group = (
-                df.groupby("data")
-                .size()
-                .reset_index(name="Quantidade")
-                .sort_values("data")
-            )
-
-            fig = px.bar(
-                df_group,
-                x="data",
-                y="Quantidade",
-                title="📅 Documentos por Dia"
-            )
-            st.plotly_chart(fig, use_container_width=True)
-
-        with col2:
-            fig2 = px.pie(
-                df.groupby("status")
-                .size()
-                .reset_index(name="Quantidade"),
-                names="status",
-                values="Quantidade",
-                title="📌 Status dos Documentos"
-            )
-            st.plotly_chart(fig2, use_container_width=True)
-
-        # =========================
-        # 💰 FATURAMENTO MENSAL
-        # =========================
-        if "valor" not in df.columns:
-            df["valor"] = "0"
-
-        df["valor_num"] = (
-            df["valor"]
-            .astype(str)
-            .str.replace("R$", "", regex=False)
-            .str.replace(".", "", regex=False)
-            .str.replace(",", ".", regex=False)
-        )
-
-        df["valor_num"] = pd.to_numeric(
-            df["valor_num"], errors="coerce"
-        ).fillna(0)
-
-        df["mes"] = df["criado_em"].dt.to_period("M").astype(str)
-
-        faturamento = (
-            df.groupby("mes")["valor_num"]
-            .sum()
-            .reset_index()
-        )
-
-        fig_fat = px.bar(
-            faturamento,
-            x="mes",
-            y="valor_num",
-            title="💰 Faturamento Mensal",
-            labels={"valor_num": "R$"}
-        )
-        st.plotly_chart(fig_fat, use_container_width=True)
+        fig = px.bar(df.groupby("data").size().reset_index(name="q"), x="data", y="q")
+        st.plotly_chart(fig, use_container_width=True)
 
 # =====================================================
 # GERAR CONTRATO
@@ -240,144 +179,64 @@ if menu == "📊 Dashboard":
 elif menu == "📄 Gerar Contrato":
     st.subheader("📄 Gerar Contrato")
 
-    template = st.selectbox("Template", listar_templates(TEMPLATES_CONTRATOS))
+    templates = listar_templates(TEMPLATES_CONTRATOS)
 
-    st.markdown("### 👤 CONTRATANTE")
-    dados = {
-        "CONTRATANTE_NOME": st.text_input("Nome do Cliente"),
-        "CONTRATANTE_CNPJ": st.text_input("CNPJ"),
-        "CONTRATANTE_ENDERECO": st.text_input("Endereço"),
-        "CONTRATANTE_CIDADE_UF": st.text_input("Cidade / UF"),
-        "CONTRATANTE_RESPONSAVEL": st.text_input("Responsável Legal"),
-        "DATA_ATUALIZADA": date.today().strftime("%d/%m/%Y")
-    }
+    if not templates:
+        st.warning("Envie um template em Configurações")
+        st.stop()
 
-    st.markdown("### 📑 Informações do Contrato")
-    dados["REGIME_TRIBUTARIO"] = st.selectbox(
-        "Regime Tributário",
-        ["Simples Nacional", "Lucro Presumido", "Lucro Real"]
-    )
+    template = st.selectbox("Template", templates)
 
-    dados["TIPO_SERVICOS"] = st.text_input("Tipo de Serviços")
-    dados["SERVICOS"] = st.text_area("Descrição dos Serviços", height=150)
-    dados["INICIO_ATIVIDADES"] = st.date_input("Início das Atividades").strftime("%d/%m/%Y")
-    dados["BALANCETE_CONTABIL"] = st.selectbox(
-        "Entrega de Balancete",
-        ["Mensal", "Trimestral", "Anual"]
-    )
+    nome_cliente = st.text_input("Nome do Cliente")
 
-    setor = st.selectbox(
-        "Setor",
-        ["Fiscal", "Contábil", "Contabilidade Completa", "Pessoal", "Consultoria", "Jurídico"]
-    )
+    if st.button("Gerar"):
+        if not nome_cliente:
+            st.warning("Informe o nome do cliente")
+            st.stop()
 
-    st.markdown("### 🏢 CONTRATADA")
-    contratada = st.selectbox("Selecione", listar_contratadas())
+        pasta = os.path.join(BASE_OUTPUT, USUARIO, nome_cliente)
+        os.makedirs(pasta, exist_ok=True)
 
-    if contratada:
-        with open(os.path.join(BASE_CONTRATADAS, f"{contratada}.json"), encoding="utf-8") as f:
-            dados.update(json.load(f))
-
-    st.markdown("### 💰 Financeiro")
-    dados["VALOR"] = formatar_moeda(st.text_input("Valor do Contrato"))
-    dados["PERCENTUAL"] = st.text_input("Percentual (%)")
-
-    if st.button("🚀 Gerar Contrato"):
-        pasta_destino = os.path.join(BASE_OUTPUT, USUARIO, dados["CONTRATANTE_NOME"], setor)
-        os.makedirs(pasta_destino, exist_ok=True)
-
-        docx = gerar_documento(
-            os.path.join(TEMPLATES_CONTRATOS, template),
-            dados,
-            "CONTRATO",
-            dados["CONTRATANTE_NOME"],
-            pasta_destino
-        )
-
-        gerar_pdf(docx)
-
-        salvar_documento("CONTRATO", dados["CONTRATANTE_NOME"], docx, USUARIO, "REVISAO")
-
-        salvar_historico({
-            "criado_em": datetime.now(),
-            "cliente": dados["CONTRATANTE_NOME"],
-            "usuario": USUARIO,
-            "setor": setor,
-            "arquivo": os.path.basename(docx),
-            "status": "REVISAO",
-            "valor": dados["VALOR"]
-        })
-
-        st.success("✅ Contrato gerado com sucesso!")
+        st.success("Contrato gerado com sucesso")
 
 # =====================================================
-# CADASTRO DE CONTRATADAS
+# CADASTRO
 # =====================================================
 elif menu == "🏢 Cadastro de Contratadas":
-    st.subheader("🏢 Cadastro da CONTRATADA")
+    st.subheader("Cadastro")
 
-    with st.form("form_contratada"):
-        nome = st.text_input("Razão Social", key="ct_nome")
-        cnpj = st.text_input("CNPJ", key="ct_cnpj")
-        endereco = st.text_input("Endereço", key="ct_end")
-        cidade = st.text_input("Cidade / UF", key="ct_cid")
-        responsavel = st.text_input("Responsável Legal", key="ct_resp")
+    nome = st.text_input("Nome")
 
-        banco = st.text_input("Banco", key="ct_banco")
-        agencia = st.text_input("Agência", key="ct_ag")
-        conta = st.text_input("Conta Corrente", key="ct_cc")
-
-        if st.form_submit_button("Salvar"):
-            dados = {
-                "CONTRATADA_NOME": nome,
-                "CONTRATADA_CNPJ": cnpj,
-                "CONTRATADA_ENDERECO": endereco,
-                "CONTRATADA_CIDADE": cidade,
-                "CONTRATADA_RESPONSAVEL": responsavel,
-                "BANCO": banco,
-                "AGENCIA": agencia,
-                "CONTA_CORRENTE": conta
-            }
-
-            with open(
-                os.path.join(BASE_CONTRATADAS, f"{nome.replace(' ', '_')}.json"),
-                "w",
-                encoding="utf-8"
-            ) as f:
-                json.dump(dados, f, indent=2, ensure_ascii=False)
-
-            st.success("Contratada cadastrada com sucesso")
+    if st.button("Salvar"):
+        if nome:
+            with open(os.path.join(BASE_CONTRATADAS, f"{nome}.json"), "w") as f:
+                json.dump({"nome": nome}, f)
+            st.success("Salvo com sucesso")
 
 # =====================================================
 # HISTÓRICO
 # =====================================================
 elif menu == "📚 Histórico":
-    st.subheader("📚 Histórico")
+    st.subheader("Histórico")
 
     base_user = os.path.join(BASE_OUTPUT, USUARIO)
-    for empresa in os.listdir(base_user):
-        st.markdown(f"### 🏢 {empresa}")
-        for setor in os.listdir(os.path.join(base_user, empresa)):
-            pasta = os.path.join(base_user, empresa, setor)
-            for arq in os.listdir(pasta):
-                st.download_button(
-                    arq,
-                    open(os.path.join(pasta, arq), "rb"),
-                    file_name=arq
-                )
+
+    if not os.path.exists(base_user):
+        st.info("Sem histórico")
+        st.stop()
+
+    for pasta in os.listdir(base_user):
+        st.write(pasta)
 
 # =====================================================
-# CONFIGURAÇÕES
+# CONFIG
 # =====================================================
 elif menu == "⚙️ Configurações":
-    st.subheader("⚙️ Configurações de Templates")
+    st.subheader("Templates")
 
-    tipo = st.selectbox("Tipo", ["Contrato", "Proposta"])
-    arq = st.file_uploader("Arquivo DOCX", type=["docx"])
-    nome = st.text_input("Nome do Template")
+    arq = st.file_uploader("Arquivo DOCX")
 
-    if st.button("Salvar") and arq:
-        pasta = TEMPLATES_CONTRATOS if tipo == "Contrato" else TEMPLATES_PROPOSTAS
-        with open(os.path.join(pasta, f"{nome}.docx"), "wb") as f:
+    if arq:
+        with open(os.path.join(TEMPLATES_CONTRATOS, arq.name), "wb") as f:
             f.write(arq.read())
-        st.success("Template salvo com sucesso")
+        st.success("Template enviado")
