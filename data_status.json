@@ -1,0 +1,17 @@
+{
+  "contratos": [
+    {
+      "cliente": "GABRIEL ALEXANDRE RODRIGUES RIOS",
+      "usuario": "admin",
+      "status": "Concluído",
+      "data": "16/01/2026"
+    },
+    {
+      "cliente": "GABRIEL ALEXANDRE RODRIGUES RIOS",
+      "usuario": "admin",
+      "status": "Concluído",
+      "data": "16/01/2026"
+    }
+  ],
+  "propostas": []
+}

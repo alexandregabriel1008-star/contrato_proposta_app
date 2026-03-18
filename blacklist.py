@@ -1,0 +1,26 @@
+# Correções forçadas (SEM depender do LanguageTool)
+BLACKLIST = {
+    "informacao": "informação",
+    "organizacao": "organização",
+    "administracao": "administração",
+    "contabil": "contábil",
+    "fiscalizacao": "fiscalização",
+    "tributacao": "tributação",
+    "recepcao": "recepção",
+    "balanco": "balanço",
+    "demonstracao": "demonstração",
+    "situacao": "situação",
+    "aplicacao": "aplicação",
+    "obrigacoes": "obrigações",
+    "rescisao": "rescisão",
+    "remuneracao": "remuneração",
+    "encargos": "encargos",
+    "prestacao": "prestação",
+    "responsavel": "responsável",
+    "liquidacao": "liquidação",
+    "retencao": "retenção",
+    "apuracao": "apuração",
+    "alteracao": "alteração",
+    "declaracao": "declaração",
+    "compensacao": "compensação"
+}
