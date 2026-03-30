@@ -1,16 +1,19 @@
 # =====================================================
-# EBRASIL AUTOMAÇÃO
-# APP FINAL AJUSTADO PARA STREAMLIT CLOUD
+# GAN SISTEMA CONTÁBIL (WEB READY)
 # =====================================================
 
 import streamlit as st
-st.set_page_config(page_title="EBRASIL AUTOMAÇÃO", layout="wide")
+
+st.set_page_config(
+    page_title="GAN Sistema Contábil",
+    layout="wide"
+)
 
 import os
 import json
 import hashlib
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime
 
 # =====================================================
 # PLOTLY
@@ -18,7 +21,7 @@ from datetime import datetime, date
 try:
     import plotly.express as px
     PLOTLY_OK = True
-except ImportError:
+except:
     PLOTLY_OK = False
 
 # =====================================================
@@ -34,11 +37,9 @@ from database import (
 )
 
 # =====================================================
-# CONFIG
+# CONFIG (WEB SAFE)
 # =====================================================
-init_db()
-
-BASE_DIR = os.path.dirname(__file__)
+BASE_DIR = os.getcwd()
 
 BASE_OUTPUT = os.path.join(BASE_DIR, "output")
 BASE_CONTRATADAS = os.path.join(BASE_DIR, "contratadas")
@@ -47,8 +48,17 @@ BASE_USERS = os.path.join(BASE_DIR, "users.json")
 TEMPLATES_CONTRATOS = os.path.join(BASE_DIR, "templates", "CONTRATOS")
 TEMPLATES_PROPOSTAS = os.path.join(BASE_DIR, "templates", "PROPOSTAS")
 
+# cria pastas automaticamente
 for p in [BASE_OUTPUT, BASE_CONTRATADAS, TEMPLATES_CONTRATOS, TEMPLATES_PROPOSTAS]:
     os.makedirs(p, exist_ok=True)
+
+# cria arquivo de usuários se não existir
+if not os.path.exists(BASE_USERS):
+    with open(BASE_USERS, "w", encoding="utf-8") as f:
+        json.dump({}, f)
+
+# inicializa banco
+init_db()
 
 # =====================================================
 # FUNÇÕES
@@ -57,9 +67,6 @@ def hash_senha(s):
     return hashlib.sha256(s.encode()).hexdigest()
 
 def carregar_usuarios():
-    if not os.path.exists(BASE_USERS):
-        with open(BASE_USERS, "w", encoding="utf-8") as f:
-            json.dump({}, f)
     with open(BASE_USERS, "r", encoding="utf-8") as f:
         return json.load(f)
 
@@ -80,13 +87,6 @@ def listar_contratadas():
         for f in os.listdir(BASE_CONTRATADAS)
         if f.endswith(".json")
     ]
-
-def formatar_moeda(valor):
-    try:
-        v = float(valor.replace(".", "").replace(",", "."))
-        return f"R$ {v:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    except:
-        return valor
 
 # =====================================================
 # LOGIN
@@ -129,6 +129,8 @@ if not st.session_state.usuario:
                 salvar_usuarios(usuarios)
                 st.success("Usuário criado com sucesso")
                 st.stop()
+
+    st.stop()
 
 USUARIO = st.session_state.usuario
 
@@ -186,7 +188,6 @@ elif menu == "📄 Gerar Contrato":
         st.stop()
 
     template = st.selectbox("Template", templates)
-
     nome_cliente = st.text_input("Nome do Cliente")
 
     if st.button("Gerar"):
